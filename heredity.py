@@ -185,25 +185,30 @@ def joint_probability(people, one_gene, two_genes, have_trait):
             else:
                 probability *= PROBS["trait"][0][False]
 
-
     return probability
+
 
 def probability_of_no_genes(person, people, one_gene, two_genes):
     # The only way a person can have no mutated genes is if both of the parents pass on an unmutated gene
     #   (having already taken into account random mutations)
     return (1-probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes)) * (1-probability_child_inherit_gene(people[person]["father"], one_gene, two_genes))
 
+
 def probability_of_one_gene(person, people, one_gene, two_genes):
     # There are two ways a person can have only one gene:
     #   Their mother passes on the gene and their father doesn't
     #   Their father passes on the gene and their mother doesn't
-    scenario1 = probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes) * (1-probability_child_inherit_gene(people[person]["father"], one_gene, two_genes))
-    scenario2 = probability_child_inherit_gene(people[person]["father"], one_gene, two_genes) * (1-probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes))
+    scenario1 = probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes) * (
+        1-probability_child_inherit_gene(people[person]["father"], one_gene, two_genes))
+    scenario2 = probability_child_inherit_gene(people[person]["father"], one_gene, two_genes) * (
+        1-probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes))
     return scenario1 + scenario2
+
 
 def probability_of_two_genes(person, people, one_gene, two_genes):
     # There is only one way a person can have two genes, both of their parents passed it down
     return probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes) * probability_child_inherit_gene(people[person]["father"], one_gene, two_genes)
+
 
 def probability_child_inherit_gene(person, one_gene, two_genes):
     '''
@@ -222,18 +227,18 @@ def probability_child_inherit_gene(person, one_gene, two_genes):
     '''
     if person in one_gene:
         # If the parent is assumed to have one mutated gene then there are two ways a child can inherit a mutated gene:
-            # They inherit the normal gene and it mutates
-            # They inherit the mutated gene and it does not mutate
+        #   They inherit the normal gene and it mutates
+        #   They inherit the mutated gene and it does not mutate
         inheritance_probability = (0.5 * PROBS["mutation"]) + (0.5 * (1 - PROBS["mutation"]))
     
     elif person in two_genes:
         # If the parent is assumed to have two mutates genes then there is really one way a child can inherit a mutated gene:
-            # They inherit either of the mutated genes and it does not mutate
+        #   They inherit either of the mutated genes and it does not mutate
         inheritance_probability = 1-PROBS["mutation"]
     
     else:
         # If the parent is assumed to have no mutated genes then there is really one way a child can inherit a mutated gene:
-            # They inherit either normal gene and it mutates
+        #   They inherit either normal gene and it mutates
         inheritance_probability = PROBS["mutation"]
     
     return inheritance_probability
@@ -255,7 +260,7 @@ def update(probabilities, one_gene, two_genes, have_trait, p):
         else:            
             probabilities[person]["gene"][0] += p
 
-        #Updating the trait distribution
+        # Updating the trait distribution
         if person in have_trait:
             probabilities[person]["trait"][True] += p
         else:
@@ -266,9 +271,15 @@ def normalize(probabilities):
     """
     Update `probabilities` such that each probability distribution
     is normalized (i.e., sums to 1, with relative proportions the same).
+    
+    We already know some information about certain people in each family (e.g. James in family0.csv has the HI trait)
+    We use this information within the algorithm, which practically means that we do not explore every possible scenario with regards to people, traits, and genes
+    Therefore, none of the probability distributions will ever sum to zero. For this reason, they must be normalised
     """
     for person in probabilities:
-        geneSum = probabilities[person]["gene"][0] + probabilities[person]["gene"][1] + probabilities[person]["gene"][2]
+        geneSum = (probabilities[person]["gene"][0] +
+                   probabilities[person]["gene"][1] + probabilities[person]["gene"][2])
+        
         probabilities[person]["gene"][0] /= geneSum
         probabilities[person]["gene"][1] /= geneSum
         probabilities[person]["gene"][2] /= geneSum
