@@ -70,7 +70,9 @@ def main():
         #   There is a person in people who has a trait value of True and ISN'T in have_trait
         #   OR there is a person in people who has a trait value of Fale and IS in have_trait
         '''
-        # BASICALLY this section ensures that have_trait is a list containing all the people who have been identified as having the trait
+        # BASICALLY this section ensures that have_trait is a list containing
+        #   All the people who have been identified as having the trait
+        #   AND all the people about whom we are not sure if they have the trait
         fails_evidence = any(
             (people[person]["trait"] is not None and
              people[person]["trait"] != (person in have_trait))
@@ -148,26 +150,63 @@ def joint_probability(people, one_gene, two_genes, have_trait):
     """
     probability = 1
     
+    # Calculates the probability of the genetics occuring as described by the one_gene and two_gene lists
     for person in people:
         if person in one_gene:
-            probability *= probability_of_one_gene(person, people, one_gene, two_genes)
+            if people[person]["mother"] == None:
+                probability *= PROBS["gene"][1]
+            else:
+                probability *= probability_of_one_gene(person, people, one_gene, two_genes)
         elif person in two_genes:
-            probability *= probability_of_two_genes(person, people, one_gene, two_genes)
+            if people[person]["mother"] == None:
+                probability *= PROBS["gene"][2]
+            else:
+                probability *= probability_of_two_genes(person, people, one_gene, two_genes)
         else:
-            probability *= probability_of_no_genes(person, people, one_gene, two_genes)
+            if people[person]["mother"] == None:
+                probability *= PROBS["gene"][0]
+            else:
+                probability *= probability_of_no_genes(person, people, one_gene, two_genes)
 
-    raise NotImplementedError
+    for person in have_trait:
+        if person in one_gene:
+            probability *= PROBS["trait"][1][True]
+        elif person in two_genes:
+            probability *= PROBS["trait"][2][True]
+        else:
+            probability *= PROBS["trait"][0][True]
+
+    for person in people:
+        if person not in have_trait:
+            if person in one_gene:
+                probability *= PROBS["trait"][1][False]
+            elif person in two_genes:
+                probability *= PROBS["trait"][2][False]
+            else:
+                probability *= PROBS["trait"][0][False]
+
+
+    return probability
 
 def probability_of_no_genes(person, people, one_gene, two_genes):
-    
+    # The only way a person can have no mutated genes is if both of the parents pass on an unmutated gene
+    #   (having already taken into account random mutations)
+    return (1-probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes)) * (1-probability_child_inherit_gene(people[person]["father"], one_gene, two_genes))
 
 def probability_of_one_gene(person, people, one_gene, two_genes):
-
+    # There are two ways a person can have only one gene:
+    #   Their mother passes on the gene and their father doesn't
+    #   Their father passes on the gene and their mother doesn't
+    scenario1 = probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes) * (1-probability_child_inherit_gene(people[person]["father"], one_gene, two_genes))
+    scenario2 = probability_child_inherit_gene(people[person]["father"], one_gene, two_genes) * (1-probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes))
+    return scenario1 + scenario2
 
 def probability_of_two_genes(person, people, one_gene, two_genes):
-    
+    # There is only one way a person can have two genes, both of their parents passed it down
+    return probability_child_inherit_gene(people[person]["mother"], one_gene, two_genes) * probability_child_inherit_gene(people[person]["father"], one_gene, two_genes)
 
 def probability_child_inherit_gene(person, one_gene, two_genes):
+    '''
     # If we don't know who the parent is (i.e. we don't know if they have 0, 1, or 2 mutated genes)...
     if person == None:
         # Three options: parent has 0, 1, or 2 genes
@@ -180,17 +219,20 @@ def probability_child_inherit_gene(person, one_gene, two_genes):
         inheritance_probability += PROBS["gene"][1] * 0.5 * PROBS["mutation"]
         # If they have 2 genes, they can pass on a mutated gene by passing either of their genes and neither of them mutating
         inheritance_probability += PROBS["gene"][2] * (1-PROBS["mutation"])
-    elif person in one_gene:
+    '''
+    if person in one_gene:
         # If the parent is assumed to have one mutated gene then there are two ways a child can inherit a mutated gene:
             # They inherit the normal gene and it mutates
             # They inherit the mutated gene and it does not mutate
         inheritance_probability = (0.5 * PROBS["mutation"]) + (0.5 * (1 - PROBS["mutation"]))
+    
     elif person in two_genes:
         # If the parent is assumed to have two mutates genes then there is really one way a child can inherit a mutated gene:
             # They inherit either of the mutated genes and it does not mutate
         inheritance_probability = 1-PROBS["mutation"]
+    
     else:
-        # If the person is assumed to have no mutated genes then there is really one way a child can inherit a mutated gene:
+        # If the parent is assumed to have no mutated genes then there is really one way a child can inherit a mutated gene:
             # They inherit either normal gene and it mutates
         inheritance_probability = PROBS["mutation"]
     
